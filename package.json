@@ -1,0 +1,52 @@
+{
+  "name": "@unblocklabs/decisions",
+  "version": "0.1.0",
+  "description": "Provider-agnostic Decision & Extraction Model client for OpenRouter/Codex Decisions, Extractions, and compatible endpoints",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unblocklabs-ai/decisions.git"
+  },
+  "homepage": "https://github.com/unblocklabs-ai/decisions#readme",
+  "bugs": {
+    "url": "https://github.com/unblocklabs-ai/decisions/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "knip": "knip --reporter compact",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "release:check": "node scripts/check-release-version.mjs",
+    "preflight": "npm run knip && npm run build && npm run typecheck && npm test && npm pack --dry-run"
+  },
+  "dependencies": {
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "knip": "^6.32.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
