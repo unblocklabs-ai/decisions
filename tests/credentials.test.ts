@@ -68,4 +68,8 @@ test("credentials strictly isolate Codex LB, legacy TypeSafe, and custom origins
     resolveDecisionApiKey(resolveDecisionConfig({ apiKeyFile: badKeyFile }), {}),
     { name: "DecisionError", code: "invalid_credential" },
   );
+  await assert.rejects(
+    resolveDecisionApiKey({ apiKey: "", ambientEnvKeys: ["CODEX_LB_API_KEY"], fileEnvKeys: [] }, envBoth),
+    { name: "DecisionError", code: "invalid_credential" },
+  );
 });

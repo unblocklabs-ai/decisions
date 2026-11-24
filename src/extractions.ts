@@ -155,7 +155,7 @@ function parseExtractionAnswer(
 ): ScalarExtractionAnswer<string> | ScalarExtractionAnswer<number> | EstimateExtractionAnswer | ListExtractionAnswer {
   if (field.type === "text" || field.type === "date") {
     const schema = z.object({
-      type: z.literal(field.type),
+      type: z.literal(field.type).optional(),
       value: z.string().nullable(),
       p_null: probOpt,
       confidence: probOpt,
@@ -166,11 +166,11 @@ function parseExtractionAnswer(
     });
     const parsed = schema.safeParse(raw);
     if (!parsed.success) throw new DecisionError(`Extraction returned invalid ${field.type} answer`, "invalid_response");
-    return parsed.data;
+    return { ...parsed.data, type: field.type };
   }
   if (field.type === "number") {
     const schema = z.object({
-      type: z.literal("number"),
+      type: z.literal("number").optional(),
       value: z.number().finite().nullable(),
       p_null: probOpt,
       confidence: probOpt,
@@ -180,12 +180,12 @@ function parseExtractionAnswer(
     });
     const parsed = schema.safeParse(raw);
     if (!parsed.success) throw new DecisionError("Extraction returned invalid number answer", "invalid_response");
-    return parsed.data;
+    return { ...parsed.data, type: "number" };
   }
   if (field.type === "estimate") {
     const finiteOpt = z.number().finite().optional();
     const schema = z.object({
-      type: z.literal("estimate"),
+      type: z.literal("estimate").optional(),
       value: z.number().finite().nullable().optional(),
       mean: finiteOpt,
       median: finiteOpt,
@@ -195,17 +195,17 @@ function parseExtractionAnswer(
     });
     const parsed = schema.safeParse(raw);
     if (!parsed.success) throw new DecisionError("Extraction returned invalid estimate answer", "invalid_response");
-    return parsed.data;
+    return { ...parsed.data, type: "estimate" };
   }
   const listSchema = z.object({
-    type: z.literal("list"),
+    type: z.literal("list").optional(),
     value: z.array(z.unknown()).nullable(),
     confidence: probOpt,
     p_null: probOpt,
   });
   const parsed = listSchema.safeParse(raw);
   if (!parsed.success) throw new DecisionError("Extraction returned invalid list answer", "invalid_response");
-  return parsed.data;
+  return { ...parsed.data, type: "list" };
 }
 
 export function parseExtractionResponse<F extends FieldMap>(

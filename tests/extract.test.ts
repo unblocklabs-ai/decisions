@@ -48,6 +48,26 @@ test("extract() posts to derived /extractions endpoint, validates fields, and no
   assert.equal(result.answers.total.value, 3850);
   assert.equal(result.answers.due_date.value, "2026-11-28");
   assert.deepEqual(result.usage, { input_tokens: 400, output_tokens: 35 });
+
+  // Non-string state is JSON-stringified because /v1/extractions requires a string state,
+  // and answers.<field>.type may be omitted by providers.
+  const objClient = createDecisionClient(
+    { apiKey: "test-key" },
+    {
+      fetch: async (_url, init) => {
+        seenBody = JSON.parse(String(init?.body));
+        return Response.json({
+          model: "liquid/d1.2-ultra-20261116",
+          answers: { vendor: { value: "Acme Corp", p_null: 0.02, confidence: 0.96 } },
+        });
+      },
+    },
+  );
+  const objResult = await objClient.extract({ note: "Acme Corp" }, { vendor: textField({ null_threshold: 0.5 }) });
+  assert.equal(typeof seenBody?.state, "string");
+  assert.equal(seenBody?.state, '{"note":"Acme Corp"}');
+  assert.equal(objResult.answers.vendor.type, "text");
+  assert.equal(objResult.answers.vendor.value, "Acme Corp");
 });
 
 test("extract() enforces Liquid d1.2 null_threshold and image-asset constraints before network calls", async () => {

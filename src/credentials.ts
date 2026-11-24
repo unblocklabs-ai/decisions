@@ -23,10 +23,10 @@ export async function resolveDecisionApiKey(
   config: Pick<ResolvedDecisionConfig, "apiKey" | "apiKeyFile" | "ambientEnvKeys" | "fileEnvKeys">,
   env: Record<string, string | undefined> = process.env,
 ): Promise<string | undefined> {
-  const inline = config.apiKey?.trim();
-  if (inline) {
-    if (/\s/u.test(inline)) {
-      throw new DecisionError("Decision model apiKey must not contain whitespace", "invalid_credential");
+  if (config.apiKey !== undefined) {
+    const inline = config.apiKey.trim();
+    if (!inline || /\s/u.test(inline)) {
+      throw new DecisionError("Decision model apiKey must be a non-empty token without whitespace", "invalid_credential");
     }
     return inline;
   }

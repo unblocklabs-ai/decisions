@@ -178,9 +178,21 @@ export function createDecisionClient(
         );
       }
       validateExtractionRequest(config.model, fields, overrides?.assets);
+      let requestState: string | undefined;
+      if (typeof state === "string") {
+        requestState = state;
+      } else {
+        try {
+          requestState = JSON.stringify(state);
+        } catch {
+          throw new DecisionError("Extraction state must be a non-empty string or JSON-serializable value", "invalid_config");
+        }
+      }
+      if (typeof requestState !== "string" || !requestState) {
+        throw new DecisionError("Extraction state must be a non-empty string or JSON-serializable value", "invalid_config");
+      }
       const apiKey = await requireKey(overrides?.apiKey);
       const timeoutMs = overrides?.timeoutMs ?? config.timeoutMs;
-      const requestState = Array.isArray(state) || typeof state === "string" ? state : [state];
       const payload = await postJson({
         endpoint: config.extractionsEndpoint,
         apiKey,
