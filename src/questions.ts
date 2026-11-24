@@ -7,7 +7,7 @@ export type QuestionInstructions = string | Record<string, unknown>;
 export interface NoulQuestion {
   readonly type: "noul";
   readonly instructions: QuestionInstructions;
-  readonly criteria?: { readonly true: string; readonly false: string };
+  readonly criteria?: { readonly true: unknown; readonly false: unknown };
 }
 
 export interface ChoiceQuestion<K extends string = string> {
@@ -63,7 +63,7 @@ export interface DecisionResult<Q extends QuestionMap> {
 
 export function noul(
   instructions: QuestionInstructions,
-  criteria?: { readonly true: string; readonly false: string },
+  criteria?: { readonly true: unknown; readonly false: unknown },
 ): NoulQuestion {
   return criteria ? { type: "noul", instructions, criteria } : { type: "noul", instructions };
 }
