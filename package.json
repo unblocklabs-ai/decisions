@@ -1,6 +1,6 @@
 {
   "name": "@unblocklabs/decisions",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Provider-agnostic Decision & Extraction Model client for OpenRouter/Codex Decisions, Extractions, and compatible endpoints",
   "type": "module",
   "license": "MIT",

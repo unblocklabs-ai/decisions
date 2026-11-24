@@ -195,6 +195,7 @@ export function parseDecisionResponse<Q extends QuestionMap>(
   questions: Q,
   requestedModel: string,
   validateModel = true,
+  allowExtraAnswerKeys = false,
 ): DecisionResult<Q> {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new DecisionError("Decision model returned non-object payload", "invalid_response");
@@ -214,7 +215,8 @@ export function parseDecisionResponse<Q extends QuestionMap>(
   const answerRecord = rawAnswers as Record<string, unknown>;
   const expectedKeys = Object.keys(questions);
   const actualKeys = Object.keys(answerRecord);
-  if (actualKeys.length !== expectedKeys.length || expectedKeys.some(k => !Object.hasOwn(answerRecord, k))) {
+  const missingExpected = expectedKeys.some(k => !Object.hasOwn(answerRecord, k));
+  if (missingExpected || (!allowExtraAnswerKeys && actualKeys.length !== expectedKeys.length)) {
     throw new DecisionError("Decision model returned unexpected answer keys", "invalid_response");
   }
 

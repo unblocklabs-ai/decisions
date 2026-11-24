@@ -18,12 +18,14 @@ import { parseDecisionResponse, type DecisionResult, type QuestionMap } from "./
 export interface RequestOverrides {
   /** Override resolved API key for this request (useful when caller already resolved/cached it). */
   apiKey?: string;
-  /** Override timeout in ms for this request. */
+  /** Override timeout in ms (1..60000) for this request. */
   timeoutMs?: number;
   /** Caller cancellation signal. */
   signal?: AbortSignal;
   /** Default true: validate returned payload.model against configured model. */
   validateModel?: boolean;
+  /** Default false: when true, project and validate requested answer keys while stripping unrequested provider extras. */
+  allowExtraAnswerKeys?: boolean;
 }
 
 export interface DecisionClient {
@@ -38,6 +40,15 @@ export interface DecisionClient {
     questions: Q,
     overrides?: RequestOverrides,
   ): Promise<DecisionResult<Q>>;
+  /**
+   * Low-level raw JSON decision call using the exact same HTTPS/auth/timeout/error transport,
+   * for callers that intentionally tolerate partial multi-question responses or custom schemas.
+   */
+  decideRaw(
+    state: unknown,
+    questions: unknown,
+    overrides?: Pick<RequestOverrides, "apiKey" | "timeoutMs" | "signal">,
+  ): Promise<unknown>;
   /** Typed extraction call (POST /extractions). */
   extract<const F extends FieldMap>(
     state: unknown,
@@ -54,6 +65,13 @@ function endpointOrigin(endpoint: string): string | undefined {
   }
 }
 
+function resolveTimeoutMs(timeoutMs: number): number {
+  if (typeof timeoutMs !== "number" || !Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000) {
+    throw new DecisionError("Decision model timeoutMs must be an integer between 1 and 60000", "invalid_config");
+  }
+  return timeoutMs;
+}
+
 async function postJson(params: {
   endpoint: string;
   apiKey: string;
@@ -63,7 +81,7 @@ async function postJson(params: {
   preDispatchRetryAfterOrigins: readonly string[];
   fetchImpl: typeof globalThis.fetch;
 }): Promise<unknown> {
-  const timeout = AbortSignal.timeout(params.timeoutMs);
+  const timeout = AbortSignal.timeout(resolveTimeoutMs(params.timeoutMs));
   const signal = params.signal ? AbortSignal.any([params.signal, timeout]) : timeout;
   const origin = endpointOrigin(params.endpoint);
   try {
@@ -149,8 +167,11 @@ export function createDecisionClient(
       questions: Q,
       overrides?: RequestOverrides,
     ): Promise<DecisionResult<Q>> {
+      if (Object.keys(questions).length === 0) {
+        throw new DecisionError("Decision request requires at least one question", "invalid_config");
+      }
+      const timeoutMs = resolveTimeoutMs(overrides?.timeoutMs ?? config.timeoutMs);
       const apiKey = await requireKey(overrides?.apiKey);
-      const timeoutMs = overrides?.timeoutMs ?? config.timeoutMs;
       const requestState = config.dialect === "systemone" || Array.isArray(state) || typeof state === "string"
         ? state
         : [state];
@@ -163,7 +184,34 @@ export function createDecisionClient(
         preDispatchRetryAfterOrigins: config.preDispatchRetryAfterOrigins,
         fetchImpl,
       });
-      return parseDecisionResponse(payload, questions, config.model, overrides?.validateModel ?? true);
+      return parseDecisionResponse(
+        payload,
+        questions,
+        config.model,
+        overrides?.validateModel ?? true,
+        overrides?.allowExtraAnswerKeys ?? false,
+      );
+    },
+
+    async decideRaw(
+      state: unknown,
+      questions: unknown,
+      overrides?: Pick<RequestOverrides, "apiKey" | "timeoutMs" | "signal">,
+    ): Promise<unknown> {
+      const timeoutMs = resolveTimeoutMs(overrides?.timeoutMs ?? config.timeoutMs);
+      const apiKey = await requireKey(overrides?.apiKey);
+      const requestState = config.dialect === "systemone" || Array.isArray(state) || typeof state === "string"
+        ? state
+        : [state];
+      return postJson({
+        endpoint: config.endpoint,
+        apiKey,
+        body: { model: config.model, state: requestState, questions },
+        timeoutMs,
+        signal: overrides?.signal,
+        preDispatchRetryAfterOrigins: config.preDispatchRetryAfterOrigins,
+        fetchImpl,
+      });
     },
 
     async extract<const F extends FieldMap>(
@@ -177,6 +225,7 @@ export function createDecisionClient(
           "invalid_config",
         );
       }
+      const timeoutMs = resolveTimeoutMs(overrides?.timeoutMs ?? config.timeoutMs);
       validateExtractionRequest(config.model, fields, overrides?.assets);
       let requestState: string | undefined;
       if (typeof state === "string") {
@@ -192,7 +241,6 @@ export function createDecisionClient(
         throw new DecisionError("Extraction state must be a non-empty string or JSON-serializable value", "invalid_config");
       }
       const apiKey = await requireKey(overrides?.apiKey);
-      const timeoutMs = overrides?.timeoutMs ?? config.timeoutMs;
       const payload = await postJson({
         endpoint: config.extractionsEndpoint,
         apiKey,

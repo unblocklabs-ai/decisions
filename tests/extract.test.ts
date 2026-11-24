@@ -90,13 +90,26 @@ test("extract() enforces Liquid d1.2 null_threshold and image-asset constraints 
     client.extract("hello", { vendor: textField() }),
     { name: "DecisionError", code: "invalid_config" },
   );
-  // Image asset paired with text field on d1.2 fails before dispatch
+  // Image asset paired with text or list field on d1.2 fails before dispatch
   await assert.rejects(
     client.extract("hello", { vendor: textField({ null_threshold: 0.5 }) }, {
       assets: [{ type: "image", mimeType: "image/png", data: "AAAA" }],
     }),
     { name: "DecisionError", code: "invalid_config" },
   );
+  await assert.rejects(
+    client.extract("hello", { items: listField() }, {
+      assets: [{ type: "image", mimeType: "image/png", data: "AAAA" }],
+    }),
+    { name: "DecisionError", code: "invalid_config" },
+  );
+  // Invalid per-request timeoutMs fails before dispatch as DecisionError
+  for (const badTimeout of [0, -1, 1.5, NaN, 60_001]) {
+    await assert.rejects(
+      client.extract("hello", { items: listField() }, { timeoutMs: badTimeout }),
+      { name: "DecisionError", code: "invalid_config" },
+    );
+  }
   // null_threshold rejected on list field
   await assert.rejects(
     client.extract("hello", { items: listField({ null_threshold: 0.5 } as never) }),

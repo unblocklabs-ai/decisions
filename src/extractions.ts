@@ -128,6 +128,9 @@ export function validateExtractionRequest(
   }
   const d12 = isLiquidD12Model(model);
   for (const [name, field] of entries) {
+    if (d12 && assets && assets.length > 0 && field.type !== "estimate") {
+      throw new DecisionError(`Model ${model} only supports image assets with estimate fields, not "${name}" (${field.type})`, "invalid_config");
+    }
     if (field.type === "text" || field.type === "number" || field.type === "date") {
       if (field.null_threshold !== undefined) {
         if (typeof field.null_threshold !== "number" || !Number.isFinite(field.null_threshold) ||
@@ -136,9 +139,6 @@ export function validateExtractionRequest(
         }
       } else if (d12) {
         throw new DecisionError(`Extraction field "${name}" (${field.type}) requires null_threshold > 0 for ${model}`, "invalid_config");
-      }
-      if (d12 && assets && assets.length > 0) {
-        throw new DecisionError(`Model ${model} only supports image assets with estimate fields, not "${name}" (${field.type})`, "invalid_config");
       }
     } else if ("null_threshold" in field && (field as Record<string, unknown>).null_threshold !== undefined) {
       throw new DecisionError(`Extraction field "${name}" (${field.type}) does not accept null_threshold`, "invalid_config");

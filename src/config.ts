@@ -190,6 +190,9 @@ export function resolveDecisionConfig(input: DecisionModelConfig = {}): Resolved
   }
   const apiKey = input.apiKey?.trim();
   const apiKeyFile = input.apiKeyFile?.trim();
+  if (apiKey && /\s/u.test(apiKey)) {
+    throw new DecisionError("Decision model apiKey must not contain whitespace", "invalid_config");
+  }
   if (apiKey && apiKeyFile) {
     throw new DecisionError("Decision model accepts apiKey or apiKeyFile, not both", "invalid_config");
   }

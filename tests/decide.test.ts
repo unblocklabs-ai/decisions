@@ -164,3 +164,46 @@ test("decide() scopes 503 Retry-After to confirmed pre-dispatch origins, sanitiz
     { name: "DecisionError", code: "cancelled" },
   );
 });
+
+test("decide() validates empty questions, overrides.timeoutMs, allowExtraAnswerKeys, and decideRaw()", async () => {
+  let called = false;
+  const client = createDecisionClient(
+    { apiKey: "k" },
+    {
+      fetch: async () => {
+        called = true;
+        return Response.json({
+          model: "liquid/d1.2-ultra",
+          answers: {
+            ok: { type: "noul", noul: 0.9 },
+            unrequested: { type: "noul", noul: 0.1 },
+          },
+        });
+      },
+    },
+  );
+  // Empty questions rejected before network call
+  await assert.rejects(client.decide("s", {}), { name: "DecisionError", code: "invalid_config" });
+  // Invalid overrides.timeoutMs rejected before network call
+  for (const badTimeout of [0, -5, 1.5, NaN, 60_001]) {
+    await assert.rejects(
+      client.decide("s", { ok: noul("?") }, { timeoutMs: badTimeout }),
+      { name: "DecisionError", code: "invalid_config" },
+    );
+    await assert.rejects(
+      client.decideRaw("s", {}, { timeoutMs: badTimeout }),
+      { name: "DecisionError", code: "invalid_config" },
+    );
+  }
+  assert.equal(called, false);
+
+  // Strict default rejects unrequested extra keys; allowExtraAnswerKeys strips them safely
+  await assert.rejects(client.decide("s", { ok: noul("?") }), { name: "DecisionError", code: "invalid_response" });
+  const projected = await client.decide("s", { ok: noul("?") }, { allowExtraAnswerKeys: true });
+  assert.deepEqual(Object.keys(projected.answers), ["ok"]);
+  assert.equal(projected.answers.ok.noul, 0.9);
+
+  // decideRaw returns parsed JSON payload for partial-response callers
+  const raw = await client.decideRaw("s", { ok: noul("?") }) as { answers: Record<string, unknown> };
+  assert.equal("ok" in raw.answers && "unrequested" in raw.answers, true);
+});
