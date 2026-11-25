@@ -131,3 +131,41 @@ test("extract() enforces Liquid d1.2 null_threshold and image-asset constraints 
     { name: "DecisionError", code: "invalid_config" },
   );
 });
+
+test("extract() preserves spans and confidences on list answers", async () => {
+  let seenBody: Record<string, unknown> | undefined;
+  const client = createDecisionClient(
+    { apiKey: "test-key" },
+    {
+      fetch: async (_url, init) => {
+        seenBody = JSON.parse(String(init?.body));
+        return Response.json({
+          model: "liquid/d1.2-ultra-20261116",
+          answers: {
+            facts: {
+              type: "list",
+              value: ["I only drink black Americanos"],
+              spans: [[12, 41]],
+              confidences: [0.96],
+              p_null: 0.003,
+            },
+          },
+          usage: { input_tokens: 120, output_tokens: 0 },
+        });
+      },
+    },
+  );
+  const res = await client.extract(
+    "Bek says: I only drink black Americanos.",
+    { facts: listField({ instructions: "Extract preferences", items: "text" }) },
+  );
+  assert.deepEqual((seenBody?.fields as Record<string, unknown>)?.facts, {
+    type: "list",
+    instructions: "Extract preferences",
+    items: "text",
+  });
+  assert.deepEqual(res.answers.facts.value, ["I only drink black Americanos"]);
+  assert.deepEqual(res.answers.facts.spans, [[12, 41]]);
+  assert.deepEqual(res.answers.facts.confidences, [0.96]);
+  assert.equal(res.answers.facts.p_null, 0.003);
+});

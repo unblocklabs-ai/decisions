@@ -66,6 +66,7 @@ export {
   type FieldMap,
   type ListExtractionAnswer,
   type ListField,
+  type ListItemType,
   type NumberField,
   type ScalarExtractionAnswer,
   type TextField,

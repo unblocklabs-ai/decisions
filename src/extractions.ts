@@ -28,10 +28,12 @@ export interface EstimateField {
   readonly unit?: string;
 }
 
+export type ListItemType = "text" | "number" | "date";
+
 export interface ListField {
   readonly type: "list";
   readonly instructions?: QuestionInstructions;
-  readonly items?: unknown;
+  readonly items?: ListItemType | (string & {});
 }
 
 export type ExtractionField = TextField | NumberField | DateField | EstimateField | ListField;
@@ -67,6 +69,8 @@ export interface EstimateExtractionAnswer {
 export interface ListExtractionAnswer {
   type: "list";
   value: unknown[] | null;
+  spans?: [number, number][];
+  confidences?: number[];
   confidence?: number;
   p_null?: number;
 }
@@ -147,7 +151,8 @@ export function validateExtractionRequest(
 }
 
 const probOpt = z.number().finite().min(0).max(1).optional();
-const spanOpt = z.tuple([z.number().int().min(0), z.number().int().min(0)]).optional();
+const spanTuple = z.tuple([z.number().int().min(0), z.number().int().min(0)]);
+const spanOpt = spanTuple.optional();
 
 function parseExtractionAnswer(
   field: ExtractionField,
@@ -200,6 +205,8 @@ function parseExtractionAnswer(
   const listSchema = z.object({
     type: z.literal("list").optional(),
     value: z.array(z.unknown()).nullable(),
+    spans: z.array(spanTuple).optional(),
+    confidences: z.array(z.number().finite().min(0).max(1)).optional(),
     confidence: probOpt,
     p_null: probOpt,
   });
